@@ -12,20 +12,37 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!user) {
-      router.push("/")
-      return
-    }
+    // Wait a moment for auth state to load
+    const timer = setTimeout(() => {
+      if (!user) {
+        router.replace("/")
+        return
+      }
 
-    if (user.userType !== "admin") {
-      router.push("/")
-      return
-    }
+      if (user.userType !== "admin") {
+        // Redirect to correct dashboard based on user type
+        if (user.userType === "client") {
+          router.replace("/client/dashboard")
+        } else if (user.userType === "professional") {
+          router.replace("/professional/dashboard")
+        } else {
+          router.replace("/")
+        }
+        return
+      }
 
-    setLoading(false)
+      if (!user.isVerified) {
+        router.replace("/")
+        return
+      }
+
+      setLoading(false)
+    }, 100)
+
+    return () => clearTimeout(timer)
   }, [user, router])
 
-  if (loading) {
+  if (loading || !user || user.userType !== "admin" || !user.isVerified) {
     return <LoadingSpinner />
   }
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -23,6 +23,11 @@ import {
 import { useAuth } from "@/components/auth-provider"
 import { useToast } from "@/hooks/use-toast"
 import { CommissionPaymentModal } from "@/components/commission-payment-modal"
+import { useLanguage } from "@/components/language-provider"
+import { LanguageSwitcher } from "@/components/language-switcher"
+import { NotificationSetup } from "@/components/notification-setup"
+import { NotificationCenter } from "@/components/notification-center"
+import { notificationManager } from "@/lib/notifications"
 
 interface BookingRequest {
   id: string
@@ -71,25 +76,37 @@ const mockBookings: BookingRequest[] = [
 export function ProfessionalDashboard() {
   const { user, logout, toggleAvailability } = useAuth()
   const { toast } = useToast()
+  const { t, language } = useLanguage()
   const [bookings, setBookings] = useState(mockBookings)
   const [showCommissionModal, setShowCommissionModal] = useState(false)
   const [selectedCommission, setSelectedCommission] = useState<BookingRequest | null>(null)
 
+  // Initialize notification manager with current language
+  useEffect(() => {
+    notificationManager.setLanguage(language)
+  }, [language])
+
   const handleAcceptBooking = (bookingId: string) => {
+    const booking = bookings.find((b) => b.id === bookingId)
     setBookings((prev) =>
       prev.map((booking) => (booking.id === bookingId ? { ...booking, status: "accepted" as const } : booking)),
     )
     toast({
-      title: "Booking accepted",
-      description: "The client has been notified",
+      title: t.bookingAccepted,
+      description: t.clientNotified,
     })
+
+    // Notify client
+    if (booking) {
+      notificationManager.notifyBookingAccepted(user?.name || "Professional", booking.service, booking.time)
+    }
   }
 
   const handleRejectBooking = (bookingId: string) => {
     setBookings((prev) => prev.filter((booking) => booking.id !== bookingId))
     toast({
-      title: "Booking rejected",
-      description: "The client has been notified",
+      title: t.bookingRejected,
+      description: t.clientNotified,
     })
   }
 
@@ -98,8 +115,8 @@ export function ProfessionalDashboard() {
       prev.map((booking) => (booking.id === bookingId ? { ...booking, status: "completed" as const } : booking)),
     )
     toast({
-      title: "Service completed",
-      description: "Commission has been added to pending payments",
+      title: t.serviceCompleted,
+      description: t.commissionAdded,
     })
   }
 
@@ -111,10 +128,8 @@ export function ProfessionalDashboard() {
   const handleAvailabilityToggle = () => {
     toggleAvailability()
     toast({
-      title: user?.professionalInfo?.isAvailable ? "You're now offline" : "You're now available",
-      description: user?.professionalInfo?.isAvailable
-        ? "Clients won't see you on the map"
-        : "Clients can now find and book you",
+      title: user?.professionalInfo?.isAvailable ? t.nowOffline : t.nowAvailable,
+      description: user?.professionalInfo?.isAvailable ? t.clientsCantSee : t.clientsCanFind,
     })
   }
 
@@ -135,13 +150,15 @@ export function ProfessionalDashboard() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Barza Pro</h1>
-                <p className="text-sm text-gray-500">Professional Dashboard</p>
+                <p className="text-sm text-gray-500">{t.professionalDashboard}</p>
               </div>
             </div>
 
             <div className="flex items-center space-x-4">
+              <NotificationCenter />
+              <LanguageSwitcher />
               <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-600">Available</span>
+                <span className="text-sm text-gray-600">{t.available}</span>
                 <Switch
                   checked={user?.professionalInfo?.isAvailable || false}
                   onCheckedChange={handleAvailabilityToggle}
@@ -164,13 +181,15 @@ export function ProfessionalDashboard() {
       </header>
 
       <div className="container mx-auto px-4 py-6">
+        <NotificationSetup />
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total Earnings</p>
+                  <p className="text-sm text-gray-600">{t.totalEarnings}</p>
                   <p className="text-2xl font-bold text-gray-900">${totalEarnings}</p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -184,7 +203,7 @@ export function ProfessionalDashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Pending Commissions</p>
+                  <p className="text-sm text-gray-600">{t.pendingCommissions}</p>
                   <p className="text-2xl font-bold text-gray-900">${totalCommissions}</p>
                 </div>
                 <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
@@ -198,7 +217,7 @@ export function ProfessionalDashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Completed Services</p>
+                  <p className="text-sm text-gray-600">{t.completedServices}</p>
                   <p className="text-2xl font-bold text-gray-900">{user?.professionalInfo?.completedServices || 0}</p>
                 </div>
                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -212,7 +231,7 @@ export function ProfessionalDashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Rating</p>
+                  <p className="text-sm text-gray-600">{t.rating}</p>
                   <p className="text-2xl font-bold text-gray-900">{user?.professionalInfo?.rating || 0}</p>
                 </div>
                 <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
@@ -226,9 +245,9 @@ export function ProfessionalDashboard() {
         {/* Main Content */}
         <Tabs defaultValue="bookings" className="space-y-6">
           <TabsList>
-            <TabsTrigger value="bookings">Booking Requests</TabsTrigger>
-            <TabsTrigger value="commissions">Commission Payments</TabsTrigger>
-            <TabsTrigger value="history">Service History</TabsTrigger>
+            <TabsTrigger value="bookings">{t.bookingRequests}</TabsTrigger>
+            <TabsTrigger value="commissions">{t.commissionPayments}</TabsTrigger>
+            <TabsTrigger value="history">{t.serviceHistory}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="bookings" className="space-y-4">
@@ -236,15 +255,17 @@ export function ProfessionalDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Bell className="w-5 h-5" />
-                  <span>Pending Requests ({pendingBookings.length})</span>
+                  <span>
+                    {t.pendingRequests} ({pendingBookings.length})
+                  </span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {pendingBookings.length === 0 ? (
                   <div className="text-center py-8">
                     <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No pending requests</h3>
-                    <p className="text-gray-600">New booking requests will appear here</p>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{t.noPendingRequests}</h3>
+                    <p className="text-gray-600">{t.newBookingRequests}</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -279,7 +300,7 @@ export function ProfessionalDashboard() {
                           <div className="flex space-x-2">
                             <Button size="sm" variant="outline" onClick={() => handleRejectBooking(booking.id)}>
                               <XCircle className="w-4 h-4 mr-1" />
-                              Reject
+                              {t.reject}
                             </Button>
                             <Button
                               size="sm"
@@ -287,7 +308,7 @@ export function ProfessionalDashboard() {
                               className="bg-green-600 hover:bg-green-700 text-white"
                             >
                               <CheckCircle className="w-4 h-4 mr-1" />
-                              Accept
+                              {t.accept}
                             </Button>
                           </div>
                         </div>
@@ -304,7 +325,7 @@ export function ProfessionalDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <CreditCard className="w-5 h-5" />
-                  <span>Commission Payments</span>
+                  <span>{t.commissionPayments}</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -342,7 +363,7 @@ export function ProfessionalDashboard() {
           <TabsContent value="history" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Service History</CardTitle>
+                <CardTitle>{t.serviceHistory}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">

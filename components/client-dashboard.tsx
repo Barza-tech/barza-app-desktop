@@ -2,15 +2,22 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { MapPin, Search, Star, User, Calendar, Scissors, LogOut, Filter } from "lucide-react"
+import { Tabs, TabsContent } from "@/components/ui/tabs"
+import { Search, MapPin, Star, Scissors, LogOut, User, Map, List, Filter, Menu, X } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
-import { GoogleMap } from "@/components/google-map"
-import { BookingModal } from "@/components/booking-modal"
 import { useToast } from "@/hooks/use-toast"
+import { BookingModal } from "@/components/booking-modal"
+import { StaticMap } from "@/components/static-map"
+import { useLanguage } from "@/components/language-provider"
+import { LanguageSwitcher } from "@/components/language-switcher"
+import { NotificationSetup } from "@/components/notification-setup"
+import { NotificationCenter } from "@/components/notification-center"
+import { ClientProfile } from "@/components/client-profile"
+import { reverseGeocode, type LocationInfo } from "@/lib/geocoding"
 
 interface Professional {
   id: string
@@ -22,97 +29,204 @@ interface Professional {
   isAvailable: boolean
   location: { lat: number; lng: number }
   completedServices: number
-  profileImage?: string
 }
 
 const mockProfessionals: Professional[] = [
   {
     id: "1",
-    name: "Carlos Silva",
+    name: "Maria Santos",
     rating: 4.8,
     distance: "0.5 km",
     services: ["Haircut", "Beard Trim", "Styling"],
-    price: 25,
+    price: 35,
     isAvailable: true,
-    location: { lat: 40.7128, lng: -74.006 },
-    completedServices: 156,
+    location: { lat: 38.7223, lng: -9.1393 },
+    completedServices: 127,
   },
   {
     id: "2",
-    name: "Maria Santos",
-    rating: 4.9,
+    name: "Carlos Silva",
+    rating: 4.6,
     distance: "1.2 km",
-    services: ["Hair Styling", "Color", "Treatment"],
-    price: 45,
+    services: ["Haircut", "Shave"],
+    price: 25,
     isAvailable: true,
-    location: { lat: 40.7589, lng: -73.9851 },
-    completedServices: 203,
+    location: { lat: 38.7253, lng: -9.1423 },
+    completedServices: 89,
   },
   {
     id: "3",
-    name: "João Oliveira",
-    rating: 4.7,
-    distance: "2.1 km",
-    services: ["Haircut", "Shave", "Beard Care"],
-    price: 30,
+    name: "Ana Costa",
+    rating: 4.9,
+    distance: "0.8 km",
+    services: ["Hair Styling", "Color", "Treatment"],
+    price: 40,
     isAvailable: false,
-    location: { lat: 40.7282, lng: -73.7949 },
-    completedServices: 89,
+    location: { lat: 38.7193, lng: -9.1363 },
+    completedServices: 156,
+  },
+  {
+    id: "4",
+    name: "João Pereira",
+    rating: 4.7,
+    distance: "1.5 km",
+    services: ["Haircut", "Beard Care", "Full Service"],
+    price: 45,
+    isAvailable: true,
+    location: { lat: 38.7283, lng: -9.1453 },
+    completedServices: 203,
   },
 ]
 
 export function ClientDashboard() {
-  const { user, logout, updateLocation } = useAuth()
+  const { user, logout } = useAuth()
   const { toast } = useToast()
+  const { t, language } = useLanguage()
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedProfessional, setSelectedProfessional] = useState<Professional | null>(null)
   const [showBookingModal, setShowBookingModal] = useState(false)
-  const [mapView, setMapView] = useState(false)
+  const [showProfile, setShowProfile] = useState(false)
+  const [showMobileMenu, setShowMobileMenu] = useState(false)
+  const [viewMode, setViewMode] = useState<"map" | "list">("map")
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [userLocationInfo, setUserLocationInfo] = useState<LocationInfo | null>(null)
+  const [filteredProfessionals, setFilteredProfessionals] = useState(mockProfessionals)
 
+  // Get user location on mount
   useEffect(() => {
-    // Request user location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
+        async (position) => {
           const location = {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
           }
           setUserLocation(location)
-          updateLocation(location)
+
+          try {
+            const locationInfo = await reverseGeocode(location.lat, location.lng)
+            setUserLocationInfo(locationInfo)
+          } catch (error) {
+            console.error("Error getting location info:", error)
+          }
         },
         (error) => {
           console.error("Error getting location:", error)
-          toast({
-            title: "Location access denied",
-            description: "Please enable location access to find nearby professionals",
-            variant: "destructive",
-          })
+          // Default to Lisbon
+          const defaultLocation = { lat: 38.7223, lng: -9.1393 }
+          setUserLocation(defaultLocation)
         },
       )
     }
-  }, [updateLocation, toast])
+  }, [])
 
-  const filteredProfessionals = mockProfessionals.filter(
-    (professional) =>
-      professional.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      professional.services.some((service) => service.toLowerCase().includes(searchQuery.toLowerCase())),
-  )
+  // Filter professionals based on search
+  useEffect(() => {
+    const filtered = mockProfessionals.filter(
+      (prof) =>
+        prof.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        prof.services.some((service) => service.toLowerCase().includes(searchQuery.toLowerCase())),
+    )
+    setFilteredProfessionals(filtered)
+  }, [searchQuery])
 
-  const handleBookService = (professional: Professional) => {
+  const handleProfessionalSelect = (professional: Professional) => {
     setSelectedProfessional(professional)
     setShowBookingModal(true)
   }
 
+  const handleLocationUpdate = async (location: { lat: number; lng: number }) => {
+    setUserLocation(location)
+    try {
+      const locationInfo = await reverseGeocode(location.lat, location.lng)
+      setUserLocationInfo(locationInfo)
+    } catch (error) {
+      console.error("Error getting location info:", error)
+    }
+  }
+
   const handleLogout = () => {
     logout()
+    toast({
+      title: "👋 " + t.logout,
+      description: "You have been logged out successfully",
+    })
   }
+
+  const center = userLocation || { lat: 38.7223, lng: -9.1393 }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      {/* Mobile Header */}
+      <header className="bg-white shadow-sm border-b lg:hidden">
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 barza-gradient rounded-lg flex items-center justify-center">
+                <Scissors className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-gray-900">Barza</h1>
+                <p className="text-xs text-gray-500">{t.findPerfectBarber}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <NotificationCenter />
+              <Button variant="ghost" size="sm" onClick={() => setShowMobileMenu(!showMobileMenu)} className="p-2">
+                {showMobileMenu ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </Button>
+            </div>
+          </div>
+
+          {/* Mobile Menu */}
+          {showMobileMenu && (
+            <div className="mt-4 pt-4 border-t space-y-3">
+              <div className="flex items-center space-x-3 p-2">
+                <Avatar className="w-8 h-8">
+                  <AvatarFallback className="bg-orange-100 text-orange-800 text-sm">
+                    {user?.name?.charAt(0) || "U"}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                  <p className="font-medium text-sm">{user?.name}</p>
+                  <p className="text-xs text-gray-500">{user?.email}</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowProfile(true)
+                    setShowMobileMenu(false)
+                  }}
+                  className="w-full justify-start"
+                >
+                  <User className="w-4 h-4 mr-2" />
+                  {t.profile}
+                </Button>
+
+                <LanguageSwitcher />
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="w-full justify-start text-red-600 hover:text-red-700"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  {t.logout}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </header>
+
+      {/* Desktop Header */}
+      <header className="bg-white shadow-sm border-b hidden lg:block">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -121,11 +235,13 @@ export function ClientDashboard() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Barza</h1>
-                <p className="text-sm text-gray-500">Find your perfect barber</p>
+                <p className="text-sm text-gray-500">{t.findPerfectBarber}</p>
               </div>
             </div>
 
             <div className="flex items-center space-x-4">
+              <NotificationCenter />
+              <LanguageSwitcher />
               <div className="flex items-center space-x-2">
                 <Avatar className="w-8 h-8">
                   <AvatarFallback className="bg-orange-100 text-orange-800">
@@ -134,6 +250,9 @@ export function ClientDashboard() {
                 </Avatar>
                 <span className="text-sm font-medium text-gray-700">{user?.name}</span>
               </div>
+              <Button variant="ghost" size="sm" onClick={() => setShowProfile(true)}>
+                <User className="w-4 h-4" />
+              </Button>
               <Button variant="ghost" size="sm" onClick={handleLogout}>
                 <LogOut className="w-4 h-4" />
               </Button>
@@ -142,122 +261,148 @@ export function ClientDashboard() {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-6">
+      <div className="container mx-auto px-4 py-4 lg:py-6">
+        <NotificationSetup />
+
         {/* Search and Filters */}
-        <div className="mb-6 space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Search for services or professionals..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <div className="flex space-x-2">
-              <Button variant="outline" size="sm">
-                <Filter className="w-4 h-4 mr-2" />
-                Filters
+        <div className="mb-4 lg:mb-6 space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Input
+              placeholder={t.searchServices}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 w-full"
+            />
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+            <div className="flex items-center space-x-2">
+              <Button
+                variant={viewMode === "map" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("map")}
+                className="flex-1 sm:flex-none"
+              >
+                <Map className="w-4 h-4 mr-2" />
+                {t.mapView}
               </Button>
-              <Button variant={mapView ? "default" : "outline"} size="sm" onClick={() => setMapView(!mapView)}>
-                <MapPin className="w-4 h-4 mr-2" />
-                {mapView ? "List" : "Map"}
+              <Button
+                variant={viewMode === "list" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("list")}
+                className="flex-1 sm:flex-none"
+              >
+                <List className="w-4 h-4 mr-2" />
+                {t.listView}
               </Button>
             </div>
+
+            <Button variant="outline" size="sm" className="w-full sm:w-auto bg-transparent">
+              <Filter className="w-4 h-4 mr-2" />
+              {t.filter}
+            </Button>
           </div>
         </div>
 
-        {mapView ? (
-          /* Map View */
-          <div className="h-[600px] rounded-lg overflow-hidden">
-            <GoogleMap
-              center={userLocation || { lat: 40.7128, lng: -74.006 }}
-              professionals={filteredProfessionals}
-              userLocation={userLocation}
-              onProfessionalSelect={handleBookService}
-            />
-          </div>
-        ) : (
-          /* List View */
-          <div className="grid gap-4">
-            {filteredProfessionals.length === 0 ? (
-              <Card className="p-8 text-center">
-                <CardContent>
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Search className="w-8 h-8 text-gray-400" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No professionals found</h3>
-                  <p className="text-gray-600">Try adjusting your search or filters</p>
-                </CardContent>
-              </Card>
-            ) : (
-              filteredProfessionals.map((professional) => (
-                <Card key={professional.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start space-x-4 flex-1">
-                        <Avatar className="w-16 h-16">
-                          <AvatarFallback className="bg-orange-100 text-orange-800 text-lg">
-                            {professional.name.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
+        {/* Main Content */}
+        <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "map" | "list")}>
+          <TabsContent value="map" className="mt-0">
+            <div className="h-[400px] sm:h-[500px] lg:h-[600px] rounded-lg overflow-hidden border">
+              <StaticMap
+                center={center}
+                professionals={filteredProfessionals}
+                userLocation={userLocation}
+                onProfessionalSelect={handleProfessionalSelect}
+                onLocationUpdate={handleLocationUpdate}
+                userLocationInfo={userLocationInfo}
+              />
+            </div>
+          </TabsContent>
 
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-lg font-semibold text-gray-900">{professional.name}</h3>
-                            <div className="flex items-center space-x-2">
-                              {professional.isAvailable ? (
-                                <Badge className="bg-green-100 text-green-800 border-green-200">Available Now</Badge>
-                              ) : (
-                                <Badge variant="secondary">Busy</Badge>
-                              )}
+          <TabsContent value="list" className="mt-0">
+            <div className="space-y-4">
+              {filteredProfessionals.length === 0 ? (
+                <Card>
+                  <CardContent className="text-center py-12">
+                    <Scissors className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{t.noProfsFound}</h3>
+                    <p className="text-gray-600">{t.adjustSearch}</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredProfessionals.map((professional) => (
+                    <Card key={professional.id} className="hover:shadow-lg transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center space-x-3">
+                            <Avatar className="w-12 h-12">
+                              <AvatarFallback className="bg-orange-100 text-orange-800">
+                                {professional.name.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <h3 className="font-semibold text-sm">{professional.name}</h3>
+                              <div className="flex items-center space-x-2 text-xs text-gray-600">
+                                <div className="flex items-center space-x-1">
+                                  <Star className="w-3 h-3 text-yellow-400 fill-current" />
+                                  <span>{professional.rating}</span>
+                                </div>
+                                <div className="flex items-center space-x-1">
+                                  <MapPin className="w-3 h-3" />
+                                  <span>{professional.distance}</span>
+                                </div>
+                              </div>
                             </div>
                           </div>
+                          <Badge
+                            variant={professional.isAvailable ? "default" : "secondary"}
+                            className={`text-xs ${
+                              professional.isAvailable
+                                ? "bg-green-100 text-green-800 border-green-200"
+                                : "bg-gray-100 text-gray-600"
+                            }`}
+                          >
+                            {professional.isAvailable ? t.availableNow : t.busy}
+                          </Badge>
+                        </div>
 
-                          <div className="flex items-center space-x-4 text-sm text-gray-600">
-                            <div className="flex items-center space-x-1">
-                              <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                              <span>{professional.rating}</span>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <MapPin className="w-4 h-4" />
-                              <span>{professional.distance}</span>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <User className="w-4 h-4" />
-                              <span>{professional.completedServices} services</span>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-wrap gap-2">
-                            {professional.services.map((service) => (
-                              <Badge key={service} variant="outline" className="text-xs">
+                        <div className="mb-3">
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {professional.services.slice(0, 2).map((service, index) => (
+                              <Badge key={index} variant="outline" className="text-xs">
                                 {service}
                               </Badge>
                             ))}
+                            {professional.services.length > 2 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{professional.services.length - 2} {t.services}
+                              </Badge>
+                            )}
                           </div>
-
-                          <div className="flex items-center justify-between pt-2">
-                            <div className="text-lg font-semibold text-gray-900">${professional.price}</div>
-                            <Button
-                              onClick={() => handleBookService(professional)}
-                              disabled={!professional.isAvailable}
-                              className="barza-gradient text-white"
-                            >
-                              <Calendar className="w-4 h-4 mr-2" />
-                              Book Now
-                            </Button>
+                          <div className="flex items-center justify-between">
+                            <span className="text-lg font-bold text-gray-900">${professional.price}</span>
+                            <span className="text-xs text-gray-500">{professional.completedServices} completed</span>
                           </div>
                         </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
-        )}
+
+                        <Button
+                          onClick={() => handleProfessionalSelect(professional)}
+                          disabled={!professional.isAvailable}
+                          className="w-full barza-gradient text-white disabled:opacity-50"
+                          size="sm"
+                        >
+                          {professional.isAvailable ? t.bookNow : t.busy}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
 
       <BookingModal
@@ -265,6 +410,8 @@ export function ClientDashboard() {
         onClose={() => setShowBookingModal(false)}
         professional={selectedProfessional}
       />
+
+      <ClientProfile isOpen={showProfile} onClose={() => setShowProfile(false)} />
     </div>
   )
 }

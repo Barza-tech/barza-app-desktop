@@ -3,13 +3,14 @@
 import type React from "react"
 
 import { useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import { Upload, FileText, DollarSign, Calendar } from "lucide-react"
+import { Upload } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { useLanguage } from "@/components/language-provider"
 
 interface BookingRequest {
   id: string
@@ -29,177 +30,160 @@ interface CommissionPaymentModalProps {
 }
 
 export function CommissionPaymentModal({ isOpen, onClose, booking }: CommissionPaymentModalProps) {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [paymentMethod, setPaymentMethod] = useState("")
+  const [transactionId, setTransactionId] = useState("")
+  const [receipt, setReceipt] = useState<File | null>(null)
   const [notes, setNotes] = useState("")
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
+  const { t } = useLanguage()
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
     if (file) {
-      // Validate file type
-      const allowedTypes = ["image/jpeg", "image/png", "image/jpg", "application/pdf"]
-      if (!allowedTypes.includes(file.type)) {
-        toast({
-          title: "Invalid file type",
-          description: "Please upload a JPG, PNG, or PDF file",
-          variant: "destructive",
-        })
-        return
-      }
-
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        toast({
-          title: "File too large",
-          description: "Please upload a file smaller than 5MB",
-          variant: "destructive",
-        })
-        return
-      }
-
-      setSelectedFile(file)
+      setReceipt(file)
     }
   }
 
-  const handleSubmit = async () => {
-    if (!selectedFile) {
-      toast({
-        title: "Missing receipt",
-        description: "Please upload a payment receipt",
-        variant: "destructive",
-      })
-      return
-    }
-
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
     setLoading(true)
 
-    // Simulate file upload and payment submission
-    setTimeout(() => {
+    try {
+      // Mock payment submission
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+
       toast({
-        title: "Payment proof submitted",
-        description: "Your payment proof has been submitted for validation. You'll be notified once it's approved.",
+        title: t.paymentSubmitted,
+        description: t.commissionSubmittedReview,
       })
-      setLoading(false)
+
       onClose()
       resetForm()
-    }, 2000)
+    } catch (error) {
+      toast({
+        title: t.error,
+        description: t.failedSubmitPayment,
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   const resetForm = () => {
-    setSelectedFile(null)
+    setPaymentMethod("")
+    setTransactionId("")
+    setReceipt(null)
     setNotes("")
-  }
-
-  const handleClose = () => {
-    resetForm()
-    onClose()
   }
 
   if (!booking) return null
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Submit Commission Payment</DialogTitle>
+          <DialogTitle>{t.payCommission}</DialogTitle>
+          <DialogDescription>
+            Submit your commission payment details and receipt for this completed service.
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Booking Details */}
-          <div className="p-4 bg-gray-50 rounded-lg space-y-3">
+        <div className="space-y-4">
+          {/* Booking Info */}
+          <div className="p-3 bg-gray-50 rounded-lg space-y-2">
             <div className="flex items-center justify-between">
-              <h4 className="font-semibold">{booking.clientName}</h4>
-              <Badge variant="outline">{booking.service}</Badge>
+              <span className="text-sm text-gray-600">{t.client}:</span>
+              <span className="font-medium">{booking.clientName}</span>
             </div>
-
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="flex items-center space-x-2">
-                <Calendar className="w-4 h-4 text-gray-500" />
-                <span>{booking.date}</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <DollarSign className="w-4 h-4 text-gray-500" />
-                <span>${booking.price}</span>
-              </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">{t.service}:</span>
+              <span className="font-medium">{booking.service}</span>
             </div>
-
-            <div className="pt-2 border-t">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Commission Due (15%)</span>
-                <span className="text-lg font-bold text-orange-600">${booking.commission}</span>
-              </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">{t.date}:</span>
+              <span className="font-medium">{booking.date}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">{t.serviceAmount}</span>
+              <span className="font-medium">${booking.price}</span>
+            </div>
+            <div className="flex items-center justify-between border-t pt-2">
+              <span className="text-sm font-medium text-orange-600">{t.commissionDue}:</span>
+              <span className="text-lg font-bold text-orange-600">${booking.commission}</span>
             </div>
           </div>
 
-          {/* File Upload */}
-          <div className="space-y-2">
-            <Label htmlFor="receipt">Payment Receipt</Label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-              <input id="receipt" type="file" accept="image/*,.pdf" onChange={handleFileSelect} className="hidden" />
-              <label htmlFor="receipt" className="cursor-pointer">
-                <div className="space-y-2">
-                  <Upload className="w-8 h-8 text-gray-400 mx-auto" />
-                  <div className="text-sm text-gray-600">
-                    <span className="font-medium text-orange-600">Click to upload</span> or drag and drop
-                  </div>
-                  <div className="text-xs text-gray-500">PNG, JPG or PDF (max. 5MB)</div>
-                </div>
-              </label>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Payment Method */}
+            <div className="space-y-2">
+              <Label htmlFor="paymentMethod">{t.paymentMethod}</Label>
+              <Input
+                id="paymentMethod"
+                type="text"
+                placeholder="e.g., Bank Transfer, PayPal, etc."
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                required
+              />
             </div>
 
-            {selectedFile && (
-              <div className="flex items-center space-x-2 p-2 bg-green-50 rounded border border-green-200">
-                <FileText className="w-4 h-4 text-green-600" />
-                <span className="text-sm text-green-800">{selectedFile.name}</span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setSelectedFile(null)}
-                  className="ml-auto text-green-600 hover:text-green-800"
-                >
-                  ×
-                </Button>
+            {/* Transaction ID */}
+            <div className="space-y-2">
+              <Label htmlFor="transactionId">{t.transactionId}</Label>
+              <Input
+                id="transactionId"
+                type="text"
+                placeholder="Enter transaction reference"
+                value={transactionId}
+                onChange={(e) => setTransactionId(e.target.value)}
+                required
+              />
+            </div>
+
+            {/* Receipt Upload */}
+            <div className="space-y-2">
+              <Label htmlFor="receipt">{t.paymentReceipt}</Label>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                <input
+                  id="receipt"
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={handleFileChange}
+                  className="hidden"
+                  required
+                />
+                <label htmlFor="receipt" className="flex flex-col items-center justify-center cursor-pointer">
+                  <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                  <span className="text-sm text-gray-600">{receipt ? receipt.name : t.clickUploadReceipt}</span>
+                  <span className="text-xs text-gray-500 mt-1">PNG, JPG or PDF (max 5MB)</span>
+                </label>
               </div>
-            )}
-          </div>
+            </div>
 
-          {/* Notes */}
-          <div className="space-y-2">
-            <Label htmlFor="notes">Additional Notes (Optional)</Label>
-            <Textarea
-              id="notes"
-              placeholder="Any additional information about the payment..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-            />
-          </div>
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label htmlFor="notes">{t.additionalNotes} (Optional)</Label>
+              <Textarea
+                id="notes"
+                placeholder={t.additionalInfo}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+              />
+            </div>
 
-          {/* Payment Instructions */}
-          <div className="p-3 bg-blue-50 rounded-lg">
-            <h4 className="text-sm font-semibold text-blue-900 mb-2">Payment Instructions</h4>
-            <ul className="text-xs text-blue-800 space-y-1">
-              <li>• Upload a clear photo or PDF of your payment receipt</li>
-              <li>• Ensure the amount and date are visible</li>
-              <li>• Payment will be validated within 24-48 hours</li>
-              <li>• You'll receive a confirmation once approved</li>
-            </ul>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex space-x-3">
-            <Button variant="outline" onClick={handleClose} className="flex-1 bg-transparent">
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={loading || !selectedFile}
-              className="flex-1 barza-gradient text-white"
-            >
-              {loading ? "Submitting..." : "Submit Payment Proof"}
-            </Button>
-          </div>
+            {/* Submit Button */}
+            <div className="flex space-x-3">
+              <Button type="button" variant="outline" onClick={onClose} className="flex-1 bg-transparent">
+                {t.cancel}
+              </Button>
+              <Button type="submit" className="flex-1 barza-gradient text-white" disabled={loading}>
+                {loading ? t.submitting : t.submitPayment}
+              </Button>
+            </div>
+          </form>
         </div>
       </DialogContent>
     </Dialog>

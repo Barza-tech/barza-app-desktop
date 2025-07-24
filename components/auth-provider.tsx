@@ -2,127 +2,254 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 
-interface User {
+export interface User {
   id: string
   name: string
   email: string
   phone: string
   userType: "client" | "professional" | "admin"
   isVerified: boolean
-  location?: {
-    lat: number
-    lng: number
+  profileImage?: string
+  preferences?: {
+    notifications: boolean
+    language: string
+    theme: string
   }
   professionalInfo?: {
-    services: string[]
     isAvailable: boolean
     rating: number
     completedServices: number
+    services: string[]
+    location?: { lat: number; lng: number }
+  }
+  clientInfo?: {
+    bookingHistory: any[]
+    favoriteBarbers: string[]
+    totalBookings: number
   }
 }
 
 interface AuthContextType {
   user: User | null
   login: (email: string, password: string) => Promise<boolean>
-  register: (userData: any) => Promise<boolean>
-  logout: () => void
+  register: (data: any) => Promise<boolean>
   verifyCode: (code: string) => Promise<boolean>
-  updateLocation: (location: { lat: number; lng: number }) => void
+  logout: () => void
+  updateProfile: (data: any) => void
   toggleAvailability: () => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+// Mock users database
+const mockUsers: User[] = [
+  {
+    id: "1",
+    name: "João Silva",
+    email: "joao@client.com",
+    phone: "+351 912 345 678",
+    userType: "client",
+    isVerified: true,
+    preferences: {
+      notifications: true,
+      language: "pt",
+      theme: "light",
+    },
+    clientInfo: {
+      bookingHistory: [],
+      favoriteBarbers: [],
+      totalBookings: 5,
+    },
+  },
+  {
+    id: "2",
+    name: "Maria Santos",
+    email: "maria@barber.com",
+    phone: "+351 913 456 789",
+    userType: "professional",
+    isVerified: true,
+    preferences: {
+      notifications: true,
+      language: "pt",
+      theme: "light",
+    },
+    professionalInfo: {
+      isAvailable: true,
+      rating: 4.8,
+      completedServices: 127,
+      services: ["Haircut", "Beard Trim", "Styling"],
+      location: { lat: 38.7223, lng: -9.1393 },
+    },
+  },
+  {
+    id: "3",
+    name: "Admin User",
+    email: "admin@barza.com",
+    phone: "+351 914 567 890",
+    userType: "admin",
+    isVerified: true,
+    preferences: {
+      notifications: true,
+      language: "en",
+      theme: "light",
+    },
+  },
+]
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
+  const [pendingUser, setPendingUser] = useState<any>(null)
 
+  // Load user from localStorage on mount
   useEffect(() => {
-    // Check for stored user session
     const storedUser = localStorage.getItem("barza-user")
     if (storedUser) {
-      const user = JSON.parse(storedUser)
-      setUser(user)
-
-      // Auto-redirect based on user type
-      if (user.isVerified) {
-        if (user.userType === "client") {
-          window.location.href = "/client/dashboard"
-        } else if (user.userType === "professional") {
-          window.location.href = "/professional/dashboard"
-        } else if (user.userType === "admin") {
-          window.location.href = "/admin/dashboard"
-        }
+      try {
+        const userData = JSON.parse(storedUser)
+        setUser(userData)
+      } catch (error) {
+        console.error("Error loading user from storage:", error)
+        localStorage.removeItem("barza-user")
       }
     }
   }, [])
 
-  const login = async (email: string, password: string): Promise<boolean> => {
-    // Mock login - in real app, this would call an API
-    const mockUser: User = {
-      id: "1",
-      name: "John Doe",
-      email,
-      phone: "+1234567890",
-      userType: email.includes("barber") ? "professional" : "client",
-      isVerified: true,
-      location: { lat: 40.7128, lng: -74.006 },
-      professionalInfo: email.includes("barber")
-        ? {
-            services: ["Haircut", "Beard Trim", "Styling"],
-            isAvailable: false,
-            rating: 4.8,
-            completedServices: 156,
-          }
-        : undefined,
+  // Save user to localStorage whenever user changes
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem("barza-user", JSON.stringify(user))
+    } else {
+      localStorage.removeItem("barza-user")
     }
+  }, [user])
 
-    setUser(mockUser)
-    localStorage.setItem("barza-user", JSON.stringify(mockUser))
-    return true
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      // Simulate API call delay
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+
+      // Find user in mock database
+      const foundUser = mockUsers.find((u) => u.email === email)
+
+      if (foundUser) {
+        setUser(foundUser)
+        return true
+      }
+
+      // If not found in mock users, create a new user based on email
+      const newUser: User = {
+        id: Date.now().toString(),
+        name: email.split("@")[0],
+        email,
+        phone: "+351 900 000 000",
+        userType: email.includes("barber") || email.includes("professional") ? "professional" : "client",
+        isVerified: true,
+        preferences: {
+          notifications: true,
+          language: "pt",
+          theme: "light",
+        },
+        ...(email.includes("barber") || email.includes("professional")
+          ? {
+              professionalInfo: {
+                isAvailable: true,
+                rating: 4.5,
+                completedServices: 0,
+                services: ["Haircut", "Beard Trim"],
+                location: { lat: 38.7223, lng: -9.1393 },
+              },
+            }
+          : {
+              clientInfo: {
+                bookingHistory: [],
+                favoriteBarbers: [],
+                totalBookings: 0,
+              },
+            }),
+      }
+
+      setUser(newUser)
+      return true
+    } catch (error) {
+      console.error("Login error:", error)
+      return false
+    }
   }
 
-  const register = async (userData: any): Promise<boolean> => {
-    // Mock registration
-    const newUser: User = {
-      id: Date.now().toString(),
-      ...userData,
-      isVerified: false,
-      professionalInfo:
-        userData.userType === "professional"
-          ? {
-              services: [],
-              isAvailable: false,
-              rating: 0,
-              completedServices: 0,
-            }
-          : undefined,
-    }
+  const register = async (data: any): Promise<boolean> => {
+    try {
+      // Simulate API call delay
+      await new Promise((resolve) => setTimeout(resolve, 1000))
 
-    setUser(newUser)
-    localStorage.setItem("barza-user", JSON.stringify(newUser))
-    return true
+      const newUser: User = {
+        id: Date.now().toString(),
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        userType: data.userType,
+        isVerified: false,
+        preferences: {
+          notifications: true,
+          language: "pt",
+          theme: "light",
+        },
+        ...(data.userType === "professional"
+          ? {
+              professionalInfo: {
+                isAvailable: false,
+                rating: 0,
+                completedServices: 0,
+                services: ["Haircut"],
+                location: { lat: 38.7223, lng: -9.1393 },
+              },
+            }
+          : {
+              clientInfo: {
+                bookingHistory: [],
+                favoriteBarbers: [],
+                totalBookings: 0,
+              },
+            }),
+      }
+
+      setPendingUser(newUser)
+      return true
+    } catch (error) {
+      console.error("Registration error:", error)
+      return false
+    }
+  }
+
+  const verifyCode = async (code: string): Promise<boolean> => {
+    try {
+      // Simulate API call delay
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+
+      // Accept any 6-digit code for demo
+      if (code.length === 6 && pendingUser) {
+        const verifiedUser = { ...pendingUser, isVerified: true }
+        setUser(verifiedUser)
+        setPendingUser(null)
+        return true
+      }
+
+      return false
+    } catch (error) {
+      console.error("Verification error:", error)
+      return false
+    }
   }
 
   const logout = () => {
     setUser(null)
+    setPendingUser(null)
     localStorage.removeItem("barza-user")
   }
 
-  const verifyCode = async (code: string): Promise<boolean> => {
-    if (user && code === "123456") {
-      const verifiedUser = { ...user, isVerified: true }
-      setUser(verifiedUser)
-      localStorage.setItem("barza-user", JSON.stringify(verifiedUser))
-      return true
-    }
-    return false
-  }
-
-  const updateLocation = (location: { lat: number; lng: number }) => {
+  const updateProfile = (data: any) => {
     if (user) {
-      const updatedUser = { ...user, location }
+      const updatedUser = { ...user, ...data }
       setUser(updatedUser)
-      localStorage.setItem("barza-user", JSON.stringify(updatedUser))
     }
   }
 
@@ -136,7 +263,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       }
       setUser(updatedUser)
-      localStorage.setItem("barza-user", JSON.stringify(updatedUser))
     }
   }
 
@@ -146,9 +272,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         login,
         register,
-        logout,
         verifyCode,
-        updateLocation,
+        logout,
+        updateProfile,
         toggleAvailability,
       }}
     >
