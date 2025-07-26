@@ -37,6 +37,7 @@ export function BookingModal({ isOpen, onClose, professional }: BookingModalProp
   const [selectedTime, setSelectedTime] = useState("")
   const [notes, setNotes] = useState("")
   const [loading, setLoading] = useState(false)
+  const [attendanceType, setAttendanceType] = useState<"domicilio" | "local">("local")
   const { toast } = useToast()
   const { t } = useLanguage()
 
@@ -64,6 +65,14 @@ export function BookingModal({ isOpen, onClose, professional }: BookingModalProp
     "19:00",
     "19:30",
   ]
+
+  // Define price logic: domicilio is 20% more expensive
+  const getPrice = () => {
+    if (attendanceType === "domicilio") {
+      return (professional?.price ?? 0) * 1.2
+    }
+    return professional?.price ?? 0
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -96,6 +105,7 @@ export function BookingModal({ isOpen, onClose, professional }: BookingModalProp
     setSelectedDate("")
     setSelectedTime("")
     setNotes("")
+    setAttendanceType("local")
   }
 
   if (!professional) return null
@@ -138,6 +148,29 @@ export function BookingModal({ isOpen, onClose, professional }: BookingModalProp
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Attendance Type Selection */}
+            <div className="space-y-2">
+              <Label>{"Tipo de atendimento"}</Label>
+              <div className="flex space-x-2">
+                <Button
+                  type="button"
+                  variant={attendanceType === "local" ? "default" : "outline"}
+                  onClick={() => setAttendanceType("local")}
+                  className={attendanceType === "local" ? "barza-gradient text-white" : ""}
+                >
+                  No local do profissional
+                </Button>
+                <Button
+                  type="button"
+                  variant={attendanceType === "domicilio" ? "default" : "outline"}
+                  onClick={() => setAttendanceType("domicilio")}
+                  className={attendanceType === "domicilio" ? "barza-gradient text-white" : ""}
+                >
+                  Ao domicílio (+20%)
+                </Button>
+              </div>
+            </div>
+
             {/* Service Selection */}
             <div className="space-y-2">
               <Label htmlFor="service">{t.service}</Label>
@@ -200,7 +233,9 @@ export function BookingModal({ isOpen, onClose, professional }: BookingModalProp
             {/* Price */}
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
               <span className="text-sm text-gray-600">{t.estimatedPrice}:</span>
-              <span className="text-lg font-semibold">${professional.price}</span>
+              <span className="text-lg font-semibold">
+                ${getPrice().toFixed(2)}
+              </span>
             </div>
 
             {/* Submit Button */}
