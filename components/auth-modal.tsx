@@ -137,8 +137,8 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
           </DialogTitle>
           <DialogDescription className="text-center text-gray-600">
             {mode === "login"
-              ? "Sign in to your Barza account to find and book professional services."
-              : "Create your Barza account to start booking professional barber and beauty services. After registering, check your email to verify your account."}
+              ? "Sign in to your Barza account "
+              : "Create your Barza account"}
           </DialogDescription>
         </DialogHeader>
 
