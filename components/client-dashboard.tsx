@@ -32,50 +32,10 @@ interface Professional {
 }
 
 const mockProfessionals: Professional[] = [
-  {
-    id: "1",
-    name: "Maria Santos",
-    rating: 4.8,
-    distance: "0.5 km",
-    services: ["Haircut", "Beard Trim", "Styling"],
-    price: 35,
-    isAvailable: true,
-    location: { lat: 38.7223, lng: -9.1393 },
-    completedServices: 127,
-  },
-  {
-    id: "2",
-    name: "Carlos Silva",
-    rating: 4.6,
-    distance: "1.2 km",
-    services: ["Haircut", "Shave"],
-    price: 25,
-    isAvailable: true,
-    location: { lat: 38.7253, lng: -9.1423 },
-    completedServices: 89,
-  },
-  {
-    id: "3",
-    name: "Ana Costa",
-    rating: 4.9,
-    distance: "0.8 km",
-    services: ["Hair Styling", "Color", "Treatment"],
-    price: 40,
-    isAvailable: false,
-    location: { lat: 38.7193, lng: -9.1363 },
-    completedServices: 156,
-  },
-  {
-    id: "4",
-    name: "João Pereira",
-    rating: 4.7,
-    distance: "1.5 km",
-    services: ["Haircut", "Beard Care", "Full Service"],
-    price: 45,
-    isAvailable: true,
-    location: { lat: 38.7283, lng: -9.1453 },
-    completedServices: 203,
-  },
+  { id: "1", name: "Maria Santos", rating: 4.8, distance: "0.5 km", services: ["Haircut", "Beard Trim", "Styling"], price: 35, isAvailable: true, location: { lat: 38.7223, lng: -9.1393 }, completedServices: 127 },
+  { id: "2", name: "Carlos Silva", rating: 4.6, distance: "1.2 km", services: ["Haircut", "Shave"], price: 25, isAvailable: true, location: { lat: 38.7253, lng: -9.1423 }, completedServices: 89 },
+  { id: "3", name: "Ana Costa", rating: 4.9, distance: "0.8 km", services: ["Hair Styling", "Color", "Treatment"], price: 40, isAvailable: false, location: { lat: 38.7193, lng: -9.1363 }, completedServices: 156 },
+  { id: "4", name: "João Pereira", rating: 4.7, distance: "1.5 km", services: ["Haircut", "Beard Care", "Full Service"], price: 45, isAvailable: true, location: { lat: 38.7283, lng: -9.1453 }, completedServices: 203 },
 ]
 
 export function ClientDashboard() {
@@ -97,12 +57,8 @@ export function ClientDashboard() {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
-          const location = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          }
+          const location = { lat: position.coords.latitude, lng: position.coords.longitude }
           setUserLocation(location)
-
           try {
             const locationInfo = await reverseGeocode(location.lat, location.lng)
             setUserLocationInfo(locationInfo)
@@ -110,22 +66,20 @@ export function ClientDashboard() {
             console.error("Error getting location info:", error)
           }
         },
-        (error) => {
-          console.error("Error getting location:", error)
-          // Default to Lisbon
+        () => {
           const defaultLocation = { lat: 38.7223, lng: -9.1393 }
           setUserLocation(defaultLocation)
-        },
+        }
       )
     }
   }, [])
 
-  // Filter professionals based on search
+  // Filter professionals
   useEffect(() => {
     const filtered = mockProfessionals.filter(
       (prof) =>
         prof.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        prof.services.some((service) => service.toLowerCase().includes(searchQuery.toLowerCase())),
+        prof.services.some((service) => service.toLowerCase().includes(searchQuery.toLowerCase()))
     )
     setFilteredProfessionals(filtered)
   }, [searchQuery])
@@ -189,8 +143,8 @@ export function ClientDashboard() {
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
-                  <p className="font-medium text-sm">{user?.name}</p>
-                  <p className="text-xs text-gray-500">{user?.email}</p>
+                  <p className="font-medium text-sm">{user?.name || "User"}</p>
+                  <p className="text-xs text-gray-500">{user?.email || ""}</p>
                 </div>
               </div>
 
@@ -248,7 +202,7 @@ export function ClientDashboard() {
                     {user?.name?.charAt(0) || "U"}
                   </AvatarFallback>
                 </Avatar>
-                <span className="text-sm font-medium text-gray-700">{user?.name}</span>
+                <span className="text-sm font-medium text-gray-700">{user?.name || "User"}</span>
               </div>
               <Button variant="ghost" size="sm" onClick={() => setShowProfile(true)}>
                 <User className="w-4 h-4" />
@@ -339,7 +293,7 @@ export function ClientDashboard() {
                           <div className="flex items-center space-x-3">
                             <Avatar className="w-12 h-12">
                               <AvatarFallback className="bg-orange-100 text-orange-800">
-                                {professional.name.charAt(0)}
+                                {professional.name?.charAt(0) || "P"}
                               </AvatarFallback>
                             </Avatar>
                             <div>
@@ -356,45 +310,25 @@ export function ClientDashboard() {
                               </div>
                             </div>
                           </div>
-                          <Badge
-                            variant={professional.isAvailable ? "default" : "secondary"}
-                            className={`text-xs ${
-                              professional.isAvailable
-                                ? "bg-green-100 text-green-800 border-green-200"
-                                : "bg-gray-100 text-gray-600"
-                            }`}
-                          >
-                            {professional.isAvailable ? t.availableNow : t.busy}
+                          <Badge className={`px-2 py-1 text-xs ${professional.isAvailable ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-500"}`}>
+                            {professional.isAvailable ? t.available : t.unavailable}
                           </Badge>
                         </div>
 
-                        <div className="mb-3">
-                          <div className="flex flex-wrap gap-1 mb-2">
-                            {professional.services.slice(0, 2).map((service, index) => (
-                              <Badge key={index} variant="outline" className="text-xs">
-                                {service}
-                              </Badge>
-                            ))}
-                            {professional.services.length > 2 && (
-                              <Badge variant="outline" className="text-xs">
-                                +{professional.services.length - 2} {t.services}
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-lg font-bold text-gray-900">${professional.price}</span>
-                            <span className="text-xs text-gray-500">{professional.completedServices} completed</span>
-                          </div>
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {professional.services.map((service, idx) => (
+                            <Badge key={idx} variant="outline" className="text-xs">
+                              {service}
+                            </Badge>
+                          ))}
                         </div>
 
-                        <Button
-                          onClick={() => handleProfessionalSelect(professional)}
-                          disabled={!professional.isAvailable}
-                          className="w-full barza-gradient text-white disabled:opacity-50"
-                          size="sm"
-                        >
-                          {professional.isAvailable ? t.bookNow : t.busy}
-                        </Button>
+                        <div className="flex items-center justify-between text-sm font-medium">
+                          <span>${professional.price}</span>
+                          <Button size="sm" onClick={() => handleProfessionalSelect(professional)}>
+                            {t.book}
+                          </Button>
+                        </div>
                       </CardContent>
                     </Card>
                   ))}
@@ -405,13 +339,16 @@ export function ClientDashboard() {
         </Tabs>
       </div>
 
-      <BookingModal
-        isOpen={showBookingModal}
-        onClose={() => setShowBookingModal(false)}
-        professional={selectedProfessional}
-      />
+      {showBookingModal && selectedProfessional && (
+        <BookingModal
+          professional={selectedProfessional}
+          isOpen={showBookingModal}
+          onClose={() => setShowBookingModal(false)}
+        />
+      )}
 
-      <ClientProfile isOpen={showProfile} onClose={() => setShowProfile(false)} />
+      {showProfile && <ClientProfile isOpen={showProfile} onClose={() => setShowProfile(false)} />}
     </div>
   )
 }
+

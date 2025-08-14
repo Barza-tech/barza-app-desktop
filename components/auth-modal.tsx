@@ -91,12 +91,21 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
       })
 
       if (mode === "login" && data.access_token) {
-        // Armazena token e dados do usuário
-        localStorage.setItem("barza-token", data.access_token)
+        // Define cookie compatível com localhost e produção
+        const isLocalhost = window.location.hostname === "localhost"
+        document.cookie = `barza_token=${data.access_token}; path=/; max-age=${
+          60 * 60 * 24
+        }; ${isLocalhost ? "" : "secure;"} samesite=lax`
+
+        // Armazena dados do usuário localmente
         localStorage.setItem("barza-user", JSON.stringify(data.user))
 
-        if (formData.userType === "professional") router.replace("/professional/dashboard")
-        else router.replace("/client/dashboard")
+        // Redireciona
+        router.replace(
+          formData.userType === "professional"
+            ? "/professional/dashboard"
+            : "/client/dashboard"
+        )
       }
 
       if (mode === "register") onClose()
@@ -258,4 +267,3 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
     </Dialog>
   )
 }
-
