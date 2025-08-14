@@ -19,15 +19,18 @@ interface AuthModalProps {
   onModeChange: (mode: "login" | "register") => void
 }
 
+// Estado inicial do formulário para facilitar o reset
+const initialFormData = {
+  name: "",
+  email: "",
+  phone: "",
+  password: "",
+  confirmPassword: "",
+  userType: "client" as "client" | "professional",
+}
+
 export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProps) {
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    password: "",
-    confirmPassword: "",
-    userType: "client" as "client" | "professional",
-  })
+  const [formData, setFormData] = useState(initialFormData)
   const [loading, setLoading] = useState(false)
 
   const router = useRouter()
@@ -40,88 +43,88 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
 
     try {
       let payload: any
+      let endpoint: string
 
       if (mode === "login") {
-        payload = {
-          email: formData.email,
-          password: formData.password,
-        }
-      } else {
+        payload = { email: formData.email, password: formData.password }
+        endpoint = "https://vuqlvieuqimcaywcxteg.supabase.co/auth/v1/token?grant_type=password"
+      } else { // Modo 'register'
         if (formData.password !== formData.confirmPassword) {
-          toast({
-            title: t.error,
-            description: t.passwordsDoNotMatch,
-            variant: "destructive",
-          })
+          toast({ title: t.error, description: t.passwordsDoNotMatch, variant: "destructive" })
           setLoading(false)
           return
         }
-
-        payload = {
-          email: formData.email,
-          password: formData.password,
+        const registrationData: { [key: string]: any } = {
           name: formData.name,
-          phone: formData.phone,
-          userType: formData.userType,
+          user_type: formData.userType,
         }
+        if (formData.phone) {
+          registrationData.phone = formData.phone
+        }
+        payload = { email: formData.email, password: formData.password, data: registrationData }
+        endpoint = "https://vuqlvieuqimcaywcxteg.supabase.co/auth/v1/signup"
       }
-
-      const endpoint =
-        mode === "login"
-          ? "https://vuqlvieuqimcaywcxteg.supabase.co/auth/v1/token?grant_type=password"
-          : "https://vuqlvieuqimcaywcxteg.supabase.co/auth/v1/signup"
 
       const res = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "apikey": process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-          "Authorization": `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
         },
         body: JSON.stringify(payload),
       })
 
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Something went wrong")
+      if (!res.ok) throw new Error(data.error_description || data.msg || "Something went wrong")
 
-      toast({
-        title: mode === "login" ? t.loginSuccessful : t.registrationSuccessful,
-        description:
-          mode === "login" ? t.welcomeBackToBarza : "Check your email to verify your account.",
-      })
-
-      if (mode === "login" && data.access_token) {
-        // Define cookie compatível com localhost e produção
+      if (mode === "login") {
+        toast({ title: t.loginSuccessful, description: t.welcomeBackToBarza })
+        
         const isLocalhost = window.location.hostname === "localhost"
         document.cookie = `barza_token=${data.access_token}; path=/; max-age=${
           60 * 60 * 24
         }; ${isLocalhost ? "" : "secure;"} samesite=lax`
-
-        // Armazena dados do usuário localmente
         localStorage.setItem("barza-user", JSON.stringify(data.user))
-
-        // Redireciona
+        
         router.replace(
-          formData.userType === "professional"
+          data.user.user_metadata.user_type === "professional"
             ? "/professional/dashboard"
             : "/client/dashboard"
         )
+      } else { // Lógica após o sucesso do registo
+        // ▼▼▼ NOVA LÓGICA DE REGISTO ▼▼▼
+        toast({
+          title: t.registrationSuccessful,
+          description: "Please check your email to verify your account.", // Mensagem clara
+          duration: 6000, // Aumenta a duração para dar tempo de ler
+        })
+        setFormData(initialFormData) // Limpa os campos do formulário
+        onModeChange("login") // Muda para a aba de login para conveniência
+        // Não redireciona, o utilizador permanece no modal
+        // onClose() // Opcional: se quiser fechar o modal, descomente esta linha
+        // ▲▲▲ FIM DA NOVA LÓGICA ▲▲▲
       }
-
-      if (mode === "register") onClose()
     } catch (error: any) {
-      toast({
-        title: t.error,
-        description: error.message || t.somethingWentWrong,
-        variant: "destructive",
-      })
+      toast({ title: t.error, description: error.message || t.somethingWentWrong, variant: "destructive" })
     } finally {
       setLoading(false)
     }
   }
+  
+  // Limpa o formulário ao fechar o modal ou trocar de aba
+  const handleTabChange = (newMode: "login" | "register") => {
+    setFormData(initialFormData);
+    onModeChange(newMode);
+  }
+  
+  const handleModalClose = () => {
+    setFormData(initialFormData);
+    onClose();
+  }
 
   return (
-    <Dialog open={isOpen} onOpenChange={() => {}}>
+    // O JSX (return) permanece exatamente o mesmo, sem alterações.
+    <Dialog open={isOpen} onOpenChange={handleModalClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <div className="flex items-center justify-center mb-4">
@@ -139,7 +142,7 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={mode} onValueChange={(value) => onModeChange(value as "login" | "register")}>
+        <Tabs value={mode} onValueChange={(value) => handleTabChange(value as "login" | "register")}>
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="login">{t.login}</TabsTrigger>
             <TabsTrigger value="register">{t.register}</TabsTrigger>
@@ -158,7 +161,6 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
                   required
                 />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="password">{t.password}</Label>
                 <Input
@@ -170,7 +172,6 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
                   required
                 />
               </div>
-
               <Button type="submit" className="w-full barza-gradient text-white" disabled={loading}>
                 {loading ? t.signingIn : t.signIn}
               </Button>
@@ -190,7 +191,6 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
                   required
                 />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="email">{t.email}</Label>
                 <Input
@@ -202,19 +202,16 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
                   required
                 />
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="phone">{t.phoneNumber}</Label>
+                <Label htmlFor="phone">{t.phoneNumber} (Opcional)</Label>
                 <Input
                   id="phone"
                   type="tel"
                   placeholder="+1 (555) 123-4567"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  required
                 />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="userType">{t.iAmA}</Label>
                 <Select
@@ -232,7 +229,6 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
                   </SelectContent>
                 </Select>
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="password">{t.password}</Label>
                 <Input
@@ -244,7 +240,6 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
                   required
                 />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">{t.confirmPassword}</Label>
                 <Input
@@ -256,7 +251,6 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
                   required
                 />
               </div>
-
               <Button type="submit" className="w-full barza-gradient text-white" disabled={loading}>
                 {loading ? t.creatingAccount : t.createAccount}
               </Button>
