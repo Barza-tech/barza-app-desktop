@@ -1,18 +1,15 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useAuth } from "@/components/auth-provider"
-import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
-import { Scissors, Mail, Phone } from "lucide-react"
+import { Scissors } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 
 interface AuthModalProps {
@@ -31,12 +28,8 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
     confirmPassword: "",
     userType: "client" as "client" | "professional",
   })
-  const [verificationStep, setVerificationStep] = useState(false)
-  const [verificationCode, setVerificationCode] = useState("")
-  const [verificationMethod, setVerificationMethod] = useState<"email" | "phone">("email")
   const [loading, setLoading] = useState(false)
 
-  const { login, register, verifyCode } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
   const { t } = useLanguage()
@@ -46,20 +39,12 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
     setLoading(true)
 
     try {
-      if (mode === "login") {
-        const success = await login(formData.email, formData.password)
-        if (success) {
-          toast({
-            title: t.loginSuccessful,
-            description: t.welcomeBackToBarza,
-          })
+      let payload: any
 
-          // Redirect based on user type
-          if (formData.email.includes("barber")) {
-            router.replace("/professional/dashboard")
-          } else {
-            router.replace("/client/dashboard")
-          }
+      if (mode === "login") {
+        payload = {
+          email: formData.email,
+          password: formData.password,
         }
       } else {
         if (formData.password !== formData.confirmPassword) {
@@ -68,135 +53,62 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
             description: t.passwordsDoNotMatch,
             variant: "destructive",
           })
+          setLoading(false)
           return
         }
 
-        const success = await register(formData)
-        if (success) {
-          setVerificationStep(true)
-          toast({
-            title: t.registrationSuccessful,
-            description: `${t.verificationCodeSent} ${verificationMethod}`,
-          })
+        payload = {
+          email: formData.email,
+          password: formData.password,
+          name: formData.name,
+          phone: formData.phone,
+          userType: formData.userType,
         }
       }
-    } catch (error) {
+
+      const endpoint =
+        mode === "login"
+          ? "https://vuqlvieuqimcaywcxteg.supabase.co/auth/v1/token?grant_type=password"
+          : "https://vuqlvieuqimcaywcxteg.supabase.co/auth/v1/signup"
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          "Authorization": `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
+        },
+        body: JSON.stringify(payload),
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Something went wrong")
+
+      toast({
+        title: mode === "login" ? t.loginSuccessful : t.registrationSuccessful,
+        description:
+          mode === "login" ? t.welcomeBackToBarza : "Check your email to verify your account.",
+      })
+
+      if (mode === "login" && data.access_token) {
+        // Armazena token e dados do usuário
+        localStorage.setItem("barza-token", data.access_token)
+        localStorage.setItem("barza-user", JSON.stringify(data.user))
+
+        if (formData.userType === "professional") router.replace("/professional/dashboard")
+        else router.replace("/client/dashboard")
+      }
+
+      if (mode === "register") onClose()
+    } catch (error: any) {
       toast({
         title: t.error,
-        description: t.somethingWentWrong,
+        description: error.message || t.somethingWentWrong,
         variant: "destructive",
       })
     } finally {
       setLoading(false)
     }
-  }
-
-  const handleVerification = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-
-    try {
-      const success = await verifyCode(verificationCode)
-      if (success) {
-        toast({
-          title: t.verificationSuccessful,
-          description: t.accountVerified,
-        })
-
-        // Redirect based on user type
-        if (formData.userType === "professional") {
-          router.replace("/professional/dashboard")
-        } else {
-          router.replace("/client/dashboard")
-        }
-      } else {
-        toast({
-          title: t.invalidCode,
-          description: t.checkVerificationCode,
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      toast({
-        title: t.error,
-        description: t.verificationFailed,
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      email: "",
-      phone: "",
-      password: "",
-      confirmPassword: "",
-      userType: "client",
-    })
-    setVerificationStep(false)
-    setVerificationCode("")
-  }
-
-  if (verificationStep) {
-    return (
-      <Dialog open={isOpen} onOpenChange={() => {}}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <div className="flex items-center justify-center mb-4">
-              <div className="w-16 h-16 barza-gradient rounded-2xl flex items-center justify-center">
-                <Scissors className="w-8 h-8 text-white" />
-              </div>
-            </div>
-            <DialogTitle className="text-center text-2xl">{t.verifyAccount}</DialogTitle>
-            <DialogDescription className="text-center text-gray-600">
-              Enter the verification code sent to your email or phone to complete registration.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleVerification} className="space-y-6">
-            <div className="text-center space-y-2">
-              <p className="text-gray-600">
-                {t.verificationCodeSent} {verificationMethod}
-              </p>
-              <p className="text-sm text-gray-500">
-                {verificationMethod === "email" ? formData.email : formData.phone}
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="code">{t.verificationCode}</Label>
-              <Input
-                id="code"
-                type="text"
-                placeholder={t.enterSixDigitCode}
-                value={verificationCode}
-                onChange={(e) => setVerificationCode(e.target.value)}
-                maxLength={6}
-                className="text-center text-lg tracking-widest"
-                required
-              />
-            </div>
-
-            <Button
-              type="submit"
-              className="w-full barza-gradient text-white"
-              disabled={loading || verificationCode.length !== 6}
-            >
-              {loading ? t.verifying : t.verifyAccount2}
-            </Button>
-
-            <div className="text-center">
-              <Button type="button" variant="ghost" onClick={() => setVerificationStep(false)}>
-                {t.backToRegistration}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-    )
   }
 
   return (
@@ -208,11 +120,13 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
               <Scissors className="w-8 h-8 text-white" />
             </div>
           </div>
-          <DialogTitle className="text-center text-2xl">{mode === "login" ? t.welcomeBack : t.joinBarza}</DialogTitle>
+          <DialogTitle className="text-center text-2xl">
+            {mode === "login" ? t.welcomeBack : t.joinBarza}
+          </DialogTitle>
           <DialogDescription className="text-center text-gray-600">
             {mode === "login"
               ? "Sign in to your Barza account to find and book professional services."
-              : "Create your Barza account to start booking professional barber and beauty services."}
+              : "Create your Barza account to start booking professional barber and beauty services. After registering, check your email to verify your account."}
           </DialogDescription>
         </DialogHeader>
 
@@ -296,7 +210,9 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
                 <Label htmlFor="userType">{t.iAmA}</Label>
                 <Select
                   value={formData.userType}
-                  onValueChange={(value: "client" | "professional") => setFormData({ ...formData, userType: value })}
+                  onValueChange={(value: "client" | "professional") =>
+                    setFormData({ ...formData, userType: value })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -332,32 +248,6 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>{t.verificationMethod}</Label>
-                <div className="flex space-x-2">
-                  <Button
-                    type="button"
-                    variant={verificationMethod === "email" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setVerificationMethod("email")}
-                    className="flex-1"
-                  >
-                    <Mail className="w-4 h-4 mr-2" />
-                    Email
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={verificationMethod === "phone" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setVerificationMethod("phone")}
-                    className="flex-1"
-                  >
-                    <Phone className="w-4 h-4 mr-2" />
-                    SMS
-                  </Button>
-                </div>
-              </div>
-
               <Button type="submit" className="w-full barza-gradient text-white" disabled={loading}>
                 {loading ? t.creatingAccount : t.createAccount}
               </Button>
@@ -368,3 +258,4 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
     </Dialog>
   )
 }
+
