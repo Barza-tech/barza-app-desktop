@@ -1,4 +1,4 @@
- "use client"
+"use client"
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
@@ -19,11 +19,9 @@ interface AuthModalProps {
   onModeChange: (mode: "login" | "register") => void
 }
 
-// Estado inicial do formulário
 const initialFormData = {
   name: "",
   email: "",
-  phone: "",
   password: "",
   confirmPassword: "",
   userType: "client" as "client" | "professional",
@@ -49,7 +47,6 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
         endpoint = "/api/auth/login"
         payload = { email: formData.email, password: formData.password }
       } else {
-        // Registro
         if (formData.password !== formData.confirmPassword) {
           toast({ title: t.error, description: t.passwordsDoNotMatch, variant: "destructive" })
           setLoading(false)
@@ -61,7 +58,6 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
           email: formData.email,
           password: formData.password,
           name: formData.name,
-          phone: formData.phone,
           userType: formData.userType,
         }
       }
@@ -164,18 +160,16 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
           <TabsContent value="register">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">{t.fullName}</Label>
                 <Input
                   id="name"
                   type="text"
-                  placeholder="John Doe"
+                  placeholder="Insira o seu nome"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email">{t.email}</Label>
                 <Input
                   id="email"
                   type="email"
@@ -183,16 +177,6 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">{t.phoneNumber} (Opcional)</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="+1 (555) 123-4567"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
@@ -244,3 +228,4 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
     </Dialog>
   )
 }
+
