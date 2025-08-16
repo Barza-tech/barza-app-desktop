@@ -264,7 +264,7 @@ const translations: Record<Language, Translations> = {
     // User Types
     client: "Client",
     professional: "Professional",
-    professionalBarberBeauty: "Professional (Barber/Beauty)",
+    professionalBarberBeauty: "Professional de beleza",
     iAmA: "I am a",
 
     // Verification
@@ -481,7 +481,7 @@ const translations: Record<Language, Translations> = {
     // User Types
     client: "Cliente",
     professional: "Profissional",
-    professionalBarberBeauty: "Profissional (Barbeiro/Beleza)",
+    professionalBarberBeauty: "Profissional de beleza",
     iAmA: "Sou um",
 
     // Verification
