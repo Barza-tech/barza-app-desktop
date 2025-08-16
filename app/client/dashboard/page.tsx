@@ -12,6 +12,7 @@ export default function ClientDashboardPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    console.log(user)
     if (!user) return
     setLoading(false)
   }, [user])

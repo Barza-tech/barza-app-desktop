@@ -1,283 +1,114 @@
 "use client"
 
+import { AuthContextType } from "../pages/api/auth/auth-types"
+import type { User } from "../pages/api/auth/auth-types"
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 
-export interface User {
-  id: string
-  name: string
-  email: string
-  phone: string
-  userType: "client" | "professional" | "admin"
-  isVerified: boolean
-  profileImage?: string
-  preferences?: {
-    notifications: boolean
-    language: string
-    theme: string
-  }
-  professionalInfo?: {
-    isAvailable: boolean
-    rating: number
-    completedServices: number
-    services: string[]
-    location?: { lat: number; lng: number }
-  }
-  clientInfo?: {
-    bookingHistory: any[]
-    favoriteBarbers: string[]
-    totalBookings: number
-  }
-}
-
-interface AuthContextType {
-  user: User | null
-  login: (email: string, password: string) => Promise<boolean>
-  register: (data: any) => Promise<boolean>
-  verifyCode: (code: string) => Promise<boolean>
-  logout: () => void
-  updateProfile: (data: any) => void
-  toggleAvailability: () => void
+function getCookie(name: string): string | null {
+  if (typeof window === "undefined") return null
+  const value = `; ${document.cookie}`
+  const parts = value.split(`; ${name}=`)
+  if (parts.length === 2) return parts.pop()?.split(";").shift() || null
+  return null
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// Mock users database
-const mockUsers: User[] = [
-  {
-    id: "1",
-    name: "João Silva",
-    email: "joao@client.com",
-    phone: "+351 912 345 678",
-    userType: "client",
-    isVerified: true,
-    preferences: {
-      notifications: true,
-      language: "pt",
-      theme: "light",
-    },
-    clientInfo: {
-      bookingHistory: [],
-      favoriteBarbers: [],
-      totalBookings: 5,
-    },
-  },
-  {
-    id: "2",
-    name: "Maria Santos",
-    email: "maria@barber.com",
-    phone: "+351 913 456 789",
-    userType: "professional",
-    isVerified: true,
-    preferences: {
-      notifications: true,
-      language: "pt",
-      theme: "light",
-    },
-    professionalInfo: {
-      isAvailable: true,
-      rating: 4.8,
-      completedServices: 127,
-      services: ["Haircut", "Beard Trim", "Styling"],
-      location: { lat: 38.7223, lng: -9.1393 },
-    },
-  },
-  {
-    id: "3",
-    name: "Admin User",
-    email: "admin@barza.com",
-    phone: "+351 914 567 890",
-    userType: "admin",
-    isVerified: true,
-    preferences: {
-      notifications: true,
-      language: "en",
-      theme: "light",
-    },
-  },
-]
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [pendingUser, setPendingUser] = useState<any>(null)
+  const [loading, setLoading] = useState<boolean>(true)
+  const [reloadCounter, setReloadCounter] = useState<number>(0) // ✅ contador para forçar re-render
 
-  // Load user from localStorage on mount
-  useEffect(() => {
-    const storedUser = localStorage.getItem("barza-user")
-    if (storedUser) {
-      try {
-        const userData = JSON.parse(storedUser)
-        setUser(userData)
-      } catch (error) {
-        console.error("Error loading user from storage:", error)
-        localStorage.removeItem("barza-user")
+  const fetchUser = async () => {
+    try {
+      const res = await fetch("/api/auth/me", {
+        method: "GET",
+        credentials: "include",
+      })
+
+      if (!res.ok) {
+        setUser(null)
+        return
       }
+
+      const data = await res.json()
+      const mappedUser: User = {
+        id: data.id,
+        name: data.user_metadata?.full_name || data.email.split("@")[0],
+        email: data.email,
+        phone: data.phone || "+351 900 000 000",
+        user_Type:
+          data.app_metadata?.role === "professional"
+            ? "professional"
+            : "client",
+      }
+      setUser(mappedUser)
+    } catch (err) {
+      console.error("Error fetching user:", err)
+      setUser(null)
     }
+  }
+
+  useEffect(() => {
+    const checkUserSession = async () => {
+      const sessionCookie = getCookie("access_token")
+      if (sessionCookie) {
+        console.log("Cookie encontrado. A validar sessão...")
+        await fetchUser()
+      } else {
+        console.log("Nenhum cookie de sessão encontrado.")
+        setUser(null)
+      }
+      setLoading(false)
+    }
+    checkUserSession()
   }, [])
 
-  // Save user to localStorage whenever user changes
   useEffect(() => {
-    if (user) {
-      localStorage.setItem("barza-user", JSON.stringify(user))
-    } else {
-      localStorage.removeItem("barza-user")
+    if (!user && !loading) {
+      const timer = setTimeout(() => {
+        console.log("⏳ Auto refresh: tentando buscar user novamente...")
+        setLoading(true)
+        fetchUser()
+          .finally(() => setLoading(false))
+          .finally(() => setReloadCounter(prev => prev + 1)) // força re-render
+      }, 5000)
+      return () => clearTimeout(timer)
     }
-  }, [user])
+  }, [user, loading, reloadCounter])
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string) => {
+    console.log("Logging in with:", email, password)
     try {
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+        credentials: "include",
+      })
 
-      // Find user in mock database
-      const foundUser = mockUsers.find((u) => u.email === email)
+      if (!res.ok) return false
+      await fetchUser()
 
-      if (foundUser) {
-        setUser(foundUser)
-        return true
-      }
-
-      // If not found in mock users, create a new user based on email
-      const newUser: User = {
-        id: Date.now().toString(),
-        name: email.split("@")[0],
-        email,
-        phone: "+351 900 000 000",
-        userType: email.includes("barber") || email.includes("professional") ? "professional" : "client",
-        isVerified: true,
-        preferences: {
-          notifications: true,
-          language: "pt",
-          theme: "light",
-        },
-        ...(email.includes("barber") || email.includes("professional")
-          ? {
-              professionalInfo: {
-                isAvailable: true,
-                rating: 4.5,
-                completedServices: 0,
-                services: ["Haircut", "Beard Trim"],
-                location: { lat: 38.7223, lng: -9.1393 },
-              },
-            }
-          : {
-              clientInfo: {
-                bookingHistory: [],
-                favoriteBarbers: [],
-                totalBookings: 0,
-              },
-            }),
-      }
-
-      setUser(newUser)
       return true
-    } catch (error) {
-      console.error("Login error:", error)
+    } catch (err) {
+      console.error("Login error:", err)
       return false
     }
   }
-
-  const register = async (data: any): Promise<boolean> => {
+  const logout = async () => {
     try {
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      const newUser: User = {
-        id: Date.now().toString(),
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        userType: data.userType,
-        isVerified: false,
-        preferences: {
-          notifications: true,
-          language: "pt",
-          theme: "light",
-        },
-        ...(data.userType === "professional"
-          ? {
-              professionalInfo: {
-                isAvailable: false,
-                rating: 0,
-                completedServices: 0,
-                services: ["Haircut"],
-                location: { lat: 38.7223, lng: -9.1393 },
-              },
-            }
-          : {
-              clientInfo: {
-                bookingHistory: [],
-                favoriteBarbers: [],
-                totalBookings: 0,
-              },
-            }),
-      }
-
-      setPendingUser(newUser)
-      return true
-    } catch (error) {
-      console.error("Registration error:", error)
-      return false
-    }
-  }
-
-  const verifyCode = async (code: string): Promise<boolean> => {
-    try {
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      // Accept any 6-digit code for demo
-      if (code.length === 6 && pendingUser) {
-        const verifiedUser = { ...pendingUser, isVerified: true }
-        setUser(verifiedUser)
-        setPendingUser(null)
-        return true
-      }
-
-      return false
-    } catch (error) {
-      console.error("Verification error:", error)
-      return false
-    }
-  }
-
-  const logout = () => {
-    setUser(null)
-    setPendingUser(null)
-    localStorage.removeItem("barza-user")
-  }
-
-  const updateProfile = (data: any) => {
-    if (user) {
-      const updatedUser = { ...user, ...data }
-      setUser(updatedUser)
-    }
-  }
-
-  const toggleAvailability = () => {
-    if (user && user.professionalInfo) {
-      const updatedUser = {
-        ...user,
-        professionalInfo: {
-          ...user.professionalInfo,
-          isAvailable: !user.professionalInfo.isAvailable,
-        },
-      }
-      setUser(updatedUser)
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      })
+    } finally {
+      setUser(null)
     }
   }
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        login,
-        register,
-        verifyCode,
-        logout,
-        updateProfile,
-        toggleAvailability,
-      }}
-    >
+    <AuthContext.Provider value={{ user, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   )
@@ -285,8 +116,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext)
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider")
-  }
+  if (!context) throw new Error("useAuth must be used within AuthProvider")
   return context
 }

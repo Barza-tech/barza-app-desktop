@@ -81,7 +81,7 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
         toast({ title: t.loginSuccessful, description: t.welcomeBackToBarza })
         
         const isLocalhost = window.location.hostname === "localhost"
-        document.cookie = `barza_token=${data.access_token}; path=/; max-age=${
+        document.cookie = `access_token=${data.access_token}; path=/; max-age=${
           60 * 60 * 24
         }; ${isLocalhost ? "" : "secure;"} samesite=lax`
         localStorage.setItem("barza-user", JSON.stringify(data.user))
