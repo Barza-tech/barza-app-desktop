@@ -264,7 +264,7 @@ const translations: Record<Language, Translations> = {
     // User Types
     client: "Client",
     professional: "Professional",
-    professionalBarberBeauty: "Professional de beleza",
+    professionalBarberBeauty: "beauty Professional",
     iAmA: "I am a",
 
     // Verification
