@@ -1,4 +1,4 @@
-"use client"
+ "use client"
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
@@ -19,7 +19,7 @@ interface AuthModalProps {
   onModeChange: (mode: "login" | "register") => void
 }
 
-// Estado inicial do formulário para facilitar o reset
+// Estado inicial do formulário
 const initialFormData = {
   name: "",
   email: "",
@@ -42,67 +42,54 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
     setLoading(true)
 
     try {
-      let payload: any
       let endpoint: string
+      let payload: any
 
       if (mode === "login") {
+        endpoint = "/api/auth/login"
         payload = { email: formData.email, password: formData.password }
-        endpoint = "https://vuqlvieuqimcaywcxteg.supabase.co/auth/v1/token?grant_type=password"
-      } else { // Modo 'register'
+      } else {
+        // Registro
         if (formData.password !== formData.confirmPassword) {
           toast({ title: t.error, description: t.passwordsDoNotMatch, variant: "destructive" })
           setLoading(false)
           return
         }
-        const registrationData: { [key: string]: any } = {
+
+        endpoint = "/api/auth/register"
+        payload = {
+          email: formData.email,
+          password: formData.password,
           name: formData.name,
-          user_type: formData.userType,
+          phone: formData.phone,
+          userType: formData.userType,
         }
-        if (formData.phone) {
-          registrationData.phone = formData.phone
-        }
-        payload = { email: formData.email, password: formData.password, data: registrationData }
-        endpoint = "https://vuqlvieuqimcaywcxteg.supabase.co/auth/v1/signup"
       }
 
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       })
 
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error_description || data.msg || "Something went wrong")
+      if (!res.ok) throw new Error(data.error || "Something went wrong")
 
       if (mode === "login") {
         toast({ title: t.loginSuccessful, description: t.welcomeBackToBarza })
-        
-        const isLocalhost = window.location.hostname === "localhost"
-        document.cookie = `access_token=${data.access_token}; path=/; max-age=${
-          60 * 60 * 24
-        }; ${isLocalhost ? "" : "secure;"} samesite=lax`
-        localStorage.setItem("barza-user", JSON.stringify(data.user))
-        
         router.replace(
           data.user.user_metadata.user_type === "professional"
             ? "/professional/dashboard"
             : "/client/dashboard"
         )
-      } else { // Lógica após o sucesso do registo
-        // ▼▼▼ NOVA LÓGICA DE REGISTO ▼▼▼
+      } else {
         toast({
           title: t.registrationSuccessful,
-          description: "Please check your email to verify your account.", // Mensagem clara
-          duration: 6000, // Aumenta a duração para dar tempo de ler
+          description: "Please check your email to verify your account.",
+          duration: 6000,
         })
-        setFormData(initialFormData) // Limpa os campos do formulário
-        onModeChange("login") // Muda para a aba de login para conveniência
-        // Não redireciona, o utilizador permanece no modal
-        // onClose() // Opcional: se quiser fechar o modal, descomente esta linha
-        // ▲▲▲ FIM DA NOVA LÓGICA ▲▲▲
+        setFormData(initialFormData)
+        onModeChange("login")
       }
     } catch (error: any) {
       toast({ title: t.error, description: error.message || t.somethingWentWrong, variant: "destructive" })
@@ -110,20 +97,18 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
       setLoading(false)
     }
   }
-  
-  // Limpa o formulário ao fechar o modal ou trocar de aba
+
   const handleTabChange = (newMode: "login" | "register") => {
-    setFormData(initialFormData);
-    onModeChange(newMode);
+    setFormData(initialFormData)
+    onModeChange(newMode)
   }
-  
+
   const handleModalClose = () => {
-    setFormData(initialFormData);
-    onClose();
+    setFormData(initialFormData)
+    onClose()
   }
 
   return (
-    // O JSX (return) permanece exatamente o mesmo, sem alterações.
     <Dialog open={isOpen} onOpenChange={handleModalClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -136,9 +121,7 @@ export function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthModalProp
             {mode === "login" ? t.welcomeBack : t.joinBarza}
           </DialogTitle>
           <DialogDescription className="text-center text-gray-600">
-            {mode === "login"
-              ? "Sign in to your Barza account "
-              : "Create your Barza account"}
+            {mode === "login" ? "Sign in to your Barza account " : "Create your Barza account"}
           </DialogDescription>
         </DialogHeader>
 

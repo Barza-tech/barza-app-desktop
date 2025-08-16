@@ -1,16 +1,17 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import cookie from "cookie";
+import {serialize} from "cookie";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  console.log("Login request received:", req.method, req.body);
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
 
   const { email, password } = req.body;
 
   try {
-    // 1. Autenticação via Supabase
     const response = await fetch(
       `${SUPABASE_URL}/auth/v1/token?grant_type=password`,
       {
@@ -30,11 +31,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!response.ok) {
       return res.status(400).json({ error: data.error_description || "Login failed" });
     }
-
-    // 2. Salvar token em cookie HTTP-only
     res.setHeader(
       "Set-Cookie",
-      cookie.serialize("sb-token", data.access_token, {
+      serialize("access_token", data.access_token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         path: "/",
@@ -44,7 +43,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     );
 
     const user = data.user; 
-    console.log("User data:", user);
 
     return res.status(200).json({ message: "Logged in", user });
   } catch (err) {
