@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await res.json()
       const mappedUser: User = {
         id: data.id,
-        name: data.user_metadata?.full_name || data.email.split("@")[0],
+        name: data.user_metadata?.name || data.email.split("@")[0],
         email: data.email,
         phone: data.phone || "+351 900 000 000",
         user_Type:
