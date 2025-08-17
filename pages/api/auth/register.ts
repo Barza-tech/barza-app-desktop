@@ -8,25 +8,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { email, password, name, phone, userType } = req.body;
 
   try {
-    const response = await fetch(
-      `${SUPABASE_URL}/auth/v1/signup`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
+    const redirectUrl =
+      userType === "professional"
+        ? "https://app.barrza.com/professional/dashboard"
+        : "https://app.barrza.com/client/dashboard";
+
+    const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+      },
+      body: JSON.stringify({
+        email,
+        password,
+        options: {
+          data: { name, phone, userType },
+          emailRedirectTo: redirectUrl,
         },
-        body: JSON.stringify({ 
-          email,
-          password,
-          options: {
-            data: { name, phone, userType },
-            emailRedirectTo: "https://app.barrza.com/client/dashboard",
-          }
-        }),
-      }
-    );
+      }),
+    });
 
     const data = await response.json();
 
@@ -39,3 +41,4 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.status(500).json({ error: error.message || "Internal server error" });
   }
 }
+
