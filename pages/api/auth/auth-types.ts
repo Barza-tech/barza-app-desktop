@@ -7,7 +7,7 @@ export interface User {
   email: string
   fullName?: string
   avatarUrl?: string
-  user_Type?: string
+  user_Type?: ["client" | "professional"]
   createdAt?: string
   updatedAt?: string
 }

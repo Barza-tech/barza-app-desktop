@@ -12,12 +12,10 @@ export default function ClientDashboardPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    console.log(user)
     if (!user) return
     setLoading(false)
   }, [user])
 
-  // Redireciona se não houver usuário
   useEffect(() => {
     if (loading) return
     if (!user) router.replace("/")
