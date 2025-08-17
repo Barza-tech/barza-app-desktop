@@ -8,10 +8,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { email, password, name, phone, userType } = req.body;
 
   try {
-    const redirectUrl =
-      userType === "professional"
-        ? "https://app.barrza.com/professional/dashboard"
-        : "https://app.barrza.com/client/dashboard";
+    const redirectUrl =  "https://app.barrza.com/";
 
     const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
       method: "POST",
@@ -25,7 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         password,
         options: {
           data: { name, phone, userType },
-          emailRedirectTo: redirectUrl,
+          emailRedirectTo:redirectUrl ,
         },
       }),
     });
