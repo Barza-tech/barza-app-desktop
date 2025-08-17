@@ -8,7 +8,6 @@ import { LoadingSpinner } from "@/components/loading-spinner"
 
 export default function ProfessionalDashboardPage() {
   const { user } = useAuth()
-  const router = useRouter()
   const [loading, setLoading] = useState(true)
   useEffect(() => {
     if (!user) return
