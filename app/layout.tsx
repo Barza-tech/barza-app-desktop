@@ -9,8 +9,8 @@ import { LanguageProvider } from "@/components/language-provider"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Barza - Find Your Perfect Barber",
-  description: "Discover talented mobile barbers in your area. Professional expertise, modern convenience.",
+  title: "Barza - Find Your Perfect beauty Professional",
+  description: "Discover talented mobile beauty professional in your area. Professional expertise, modern convenience.",
     generator: 'v0.dev'
 }
 

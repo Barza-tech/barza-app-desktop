@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, loading, reloadCounter])
 
   const login = async (email: string, password: string) => {
-    console.log("Logging in with:", email, password)
+
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",

@@ -10,9 +10,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const cookies = req.headers.cookie ? parse(req.headers.cookie) : {}
     const token = cookies["access_token"] // só o valor do access_token
 
-    console.log("req.headers.cookie:", req.headers.cookie)
-    console.log("Token from cookies:", token)
-
     if (!token) {
       return res.status(401).json({ error: "No token found" })
     }
@@ -24,8 +21,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
       },
     })
-
-    console.log("User response status:", userRes.status)
 
     if (!userRes.ok) {
       return res.status(401).json({ error: "Invalid token" })
