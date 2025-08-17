@@ -166,7 +166,7 @@ export function ProfessionalDashboard() {
               <div className="flex items-center gap-2">
                 <Avatar className="w-8 h-8">
                   <AvatarFallback className="bg-orange-100 text-orange-800">
-                    {user?.name?.charAt(0) || "U"}
+                    {user?.name.charAt(0) || "U"}
                   </AvatarFallback>
                 </Avatar>
                 <span className="text-sm font-medium text-gray-700 truncate max-w-[100px] sm:max-w-[160px]">

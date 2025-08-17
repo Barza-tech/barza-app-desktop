@@ -1,13 +1,18 @@
 // auth-types.ts
+interface data {
+  name: string
+  phone?: string
+  userType: []
+}
 
 export interface User {
   id: string
-  name: string
-  phone: string
+  name: data["name"]
+  phone: data["phone"]
   email: string
   fullName?: string
   avatarUrl?: string
-  user_Type?: ["client" | "professional"]
+  user_Type?: data["userType"] extends string ? data["userType"] : "client" | "professional"
   createdAt?: string
   updatedAt?: string
 }
